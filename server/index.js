@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const { pool, initDb } = require('./db');
 
 const app = express();
@@ -14,24 +14,8 @@ app.use(express.json());
 // Initialize Database
 initDb();
 
-// Configure Nodemailer Transporter using Gmail's explicit IPv4 address
-const transporter = nodemailer.createTransport({
-    host: '142.250.150.108', // Google's explicit IPv4 SMTP address
-    port: 465,
-    secure: true,
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    },
-    tls: {
-        // Required when connecting directly to an IP address instead of hostname
-        servername: 'smtp.gmail.com'
-    },
-    // Optional: Add timeout settings for better reliability
-    connectionTimeout: 10000, // 10 seconds
-    greetingTimeout: 10000,
-    socketTimeout: 10000,
-});
+// Initialize Resend with API Key
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Health Check Endpoint
 app.get('/api/health', (req, res) => {
@@ -60,7 +44,7 @@ app.get('/api/projects', async (req, res) => {
   }
 });
 
-// POST /api/contact - Save message to PostgreSQL and Send Email
+// POST /api/contact - Save message to PostgreSQL and Send Email via Resend
 app.post('/api/contact', async (req, res) => {
   const { name, email, message } = req.body;
 
@@ -82,6 +66,7 @@ app.post('/api/contact', async (req, res) => {
   }
 
   try {
+    // 1. Save to PostgreSQL (keeps your working database logic intact)
     const queryText = `
       INSERT INTO messages (name, email, message) 
       VALUES ($1, $2, $3) 
@@ -91,29 +76,23 @@ app.post('/api/contact', async (req, res) => {
     
     console.log('📬 New message saved to database:', rows[0]);
 
-    // Send email notification
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
+    // 2. Send email via Resend API over HTTPS (port 443 - never blocked by Render)
+    const emailResponse = await resend.emails.send({
+      from: 'Portfolio Contact <onboarding@resend.dev>',
       to: process.env.RECIPIENT_EMAIL || process.env.EMAIL_USER,
       subject: `New Portfolio Message from ${name}`,
-      text: `You have received a new message from your portfolio contact form.\n\nName: ${name}\nEmail: ${email}\nMessage:\n${message}`,
       html: `
-        <h3>New Portfolio Message</h3>
+        <h2>New Contact Message</h2>
         <p><strong>Name:</strong> ${name}</p>
         <p><strong>Email:</strong> ${email}</p>
-        <p><strong>Message:</strong></p>
-        <p>${message}</p>
+        <p><strong>Message:</strong> ${message}</p>
+        <hr>
+        <p><small>Sent from your portfolio contact form</small></p>
       `,
-    };
+      replyTo: email, // Allows you to reply directly to the sender
+    });
 
-    try {
-      await transporter.sendMail(mailOptions);
-      console.log('✉️ Email notification sent successfully!');
-    } catch (mailError) {
-      console.error('⚠️ Detailed Mail Error Failure:', mailError);
-      // Don't fail the request if email fails - just log it
-      // The message was already saved to database
-    }
+    console.log('✉️ Email notification sent successfully via Resend!', emailResponse);
     
     res.status(201).json({ 
       success: true, 
@@ -121,10 +100,10 @@ app.post('/api/contact', async (req, res) => {
       data: rows[0] 
     });
   } catch (error) {
-    console.error('Error saving message:', error);
+    console.error('⚠️ Detailed Error:', error);
     res.status(500).json({ 
       success: false, 
-      error: 'Failed to save message. Please try again.' 
+      error: error.message || 'Failed to send message. Please try again.' 
     });
   }
 });
