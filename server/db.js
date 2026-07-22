@@ -3,6 +3,7 @@ require('dotenv').config();
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+  user: 'postgres.offddmsujcoeofevqmfk', // Forces full Supabase pooler username
   ssl: { rejectUnauthorized: false }, // Required for Supabase cloud connection
 });
 
