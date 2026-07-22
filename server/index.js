@@ -14,13 +14,21 @@ app.use(express.json());
 // Initialize Database
 initDb();
 
-// Configure Nodemailer Transporter using Gmail
+// Configure Nodemailer Transporter using Gmail with IPv4 fix
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true, // true for 465, false for other ports
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
+  // Force IPv4 to bypass Render's IPv6 routing block
+  family: 4,
+  // Optional: Add timeout settings for better reliability
+  connectionTimeout: 10000, // 10 seconds
+  greetingTimeout: 10000,
+  socketTimeout: 10000,
 });
 
 // Health Check Endpoint
@@ -101,6 +109,8 @@ app.post('/api/contact', async (req, res) => {
       console.log('✉️ Email notification sent successfully!');
     } catch (mailError) {
       console.error('⚠️ Detailed Mail Error Failure:', mailError);
+      // Don't fail the request if email fails - just log it
+      // The message was already saved to database
     }
     
     res.status(201).json({ 
