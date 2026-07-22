@@ -14,21 +14,23 @@ app.use(express.json());
 // Initialize Database
 initDb();
 
-// Configure Nodemailer Transporter using Gmail with IPv4 fix
+// Configure Nodemailer Transporter using Gmail's explicit IPv4 address
 const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 465,
-  secure: true, // true for 465, false for other ports
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-  // Force IPv4 to bypass Render's IPv6 routing block
-  family: 4,
-  // Optional: Add timeout settings for better reliability
-  connectionTimeout: 10000, // 10 seconds
-  greetingTimeout: 10000,
-  socketTimeout: 10000,
+    host: '142.250.150.108', // Google's explicit IPv4 SMTP address
+    port: 465,
+    secure: true,
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    },
+    tls: {
+        // Required when connecting directly to an IP address instead of hostname
+        servername: 'smtp.gmail.com'
+    },
+    // Optional: Add timeout settings for better reliability
+    connectionTimeout: 10000, // 10 seconds
+    greetingTimeout: 10000,
+    socketTimeout: 10000,
 });
 
 // Health Check Endpoint
