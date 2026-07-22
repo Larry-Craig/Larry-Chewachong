@@ -1,16 +1,30 @@
 // Helper function to normalize the base URL and guarantee the /api path
 const getBaseUrl = () => {
-  let envUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
-  
-  // Remove trailing slashes if present
-  envUrl = envUrl.replace(/\/+$/, "");
+  // 1. Fallback default
+  let rawUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-  // Ensure /api is appended if not already present
-  if (!envUrl.endsWith("/api")) {
-    envUrl = `${envUrl}/api`;
+  // 2. Remove any surrounding quotes, whitespace, or leading slashes
+  rawUrl = rawUrl.replace(/['"]+/g, "").trim().replace(/^\/+/, "");
+
+  // 3. Guarantee proper protocol (prevents Next.js relative routing errors)
+  if (!rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) {
+    rawUrl = `https://${rawUrl}`;
   }
 
-  return envUrl;
+  // 4. Safely construct the absolute URL
+  try {
+    const parsedUrl = new URL(rawUrl);
+    let pathname = parsedUrl.pathname.replace(/\/+$/, "");
+
+    if (!pathname.endsWith("/api")) {
+      pathname = `${pathname}/api`;
+    }
+
+    return `${parsedUrl.origin}${pathname}`;
+  } catch (error) {
+    // Hardcoded fallback safety net
+    return "https://larry-chewachong.onrender.com/api";
+  }
 };
 
 const API_URL = getBaseUrl();
@@ -60,7 +74,7 @@ export async function sendContactMessage(data: { name: string; email: string; me
 
     console.log(`Response status: ${res.status} ${res.statusText}`);
     
-    const contentType = res.headers.get('content-type');
+    const contentType = res.headers.get("content-type");
     console.log(`Content-Type: ${contentType}`);
 
     if (!res.ok) {
@@ -74,7 +88,7 @@ export async function sendContactMessage(data: { name: string; email: string; me
       };
     }
 
-    if (contentType && contentType.includes('application/json')) {
+    if (contentType && contentType.includes("application/json")) {
       return await res.json();
     } else {
       const text = await res.text();
