@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
+const nodemailer = require('nodemailer'); // 1. Import nodemailer
 const { pool, initDb } = require('./db');
 
 const app = express();
@@ -12,6 +13,15 @@ app.use(express.json());
 
 // Initialize Database
 initDb();
+
+// 2. Configure Nodemailer Transporter (e.g., using Gmail)
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
 
 // Health Check Endpoint
 app.get('/api/health', (req, res) => {
@@ -40,7 +50,7 @@ app.get('/api/projects', async (req, res) => {
   }
 });
 
-// POST /api/contact - Save message to PostgreSQL
+// POST /api/contact - Save message to PostgreSQL and Send Email
 app.post('/api/contact', async (req, res) => {
   const { name, email, message } = req.body;
 
@@ -69,7 +79,29 @@ app.post('/api/contact', async (req, res) => {
     `;
     const { rows } = await pool.query(queryText, [name, email, message]);
     
-    console.log('📬 New message saved:', rows[0]);
+    console.log('📬 New message saved to database:', rows[0]);
+
+    // 3. Send email notification
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: process.env.RECIPIENT_EMAIL || process.env.EMAIL_USER,
+      subject: `New Portfolio Message from ${name}`,
+      text: `You have received a new message from your portfolio contact form.\n\nName: ${name}\nEmail: ${email}\nMessage:\n${message}`,
+      html: `
+        <h3>New Portfolio Message</h3>
+        <p><strong>Name:</strong> ${name}</p>
+        <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Message:</strong></p>
+        <p>${message}</p>
+      `,
+    };
+
+    try {
+      await transporter.sendMail(mailOptions);
+      console.log('✉️ Email notification sent successfully!');
+    } catch (mailError) {
+      console.error('⚠️ Database entry saved, but failed to send email:', mailError);
+    }
     
     res.status(201).json({ 
       success: true, 
