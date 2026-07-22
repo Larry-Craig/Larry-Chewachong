@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
-const nodemailer = require('nodemailer'); // 1. Import nodemailer
+const nodemailer = require('nodemailer');
 const { pool, initDb } = require('./db');
 
 const app = express();
@@ -14,7 +14,7 @@ app.use(express.json());
 // Initialize Database
 initDb();
 
-// 2. Configure Nodemailer Transporter (e.g., using Gmail)
+// Configure Nodemailer Transporter using Gmail
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
@@ -81,7 +81,7 @@ app.post('/api/contact', async (req, res) => {
     
     console.log('📬 New message saved to database:', rows[0]);
 
-    // 3. Send email notification
+    // Send email notification
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: process.env.RECIPIENT_EMAIL || process.env.EMAIL_USER,
@@ -100,7 +100,7 @@ app.post('/api/contact', async (req, res) => {
       await transporter.sendMail(mailOptions);
       console.log('✉️ Email notification sent successfully!');
     } catch (mailError) {
-      console.error('⚠️ Database entry saved, but failed to send email:', mailError);
+      console.error('⚠️ Detailed Mail Error Failure:', mailError);
     }
     
     res.status(201).json({ 
