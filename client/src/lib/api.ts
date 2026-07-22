@@ -1,4 +1,19 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+// Helper function to normalize the base URL and guarantee the /api path
+const getBaseUrl = () => {
+  let envUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  
+  // Remove trailing slashes if present
+  envUrl = envUrl.replace(/\/+$/, "");
+
+  // Ensure /api is appended if not already present
+  if (!envUrl.endsWith("/api")) {
+    envUrl = `${envUrl}/api`;
+  }
+
+  return envUrl;
+};
+
+const API_URL = getBaseUrl();
 
 export async function fetchHealthCheck() {
   try {
@@ -31,6 +46,7 @@ export async function fetchProjects() {
     return { success: false, data: [] };
   }
 }
+
 export async function sendContactMessage(data: { name: string; email: string; message: string }) {
   try {
     const url = `${API_URL}/contact`;
@@ -42,17 +58,14 @@ export async function sendContactMessage(data: { name: string; email: string; me
       body: JSON.stringify(data),
     });
 
-    // Log the response status
     console.log(`Response status: ${res.status} ${res.statusText}`);
     
-    // Check content type to see what we're getting back
     const contentType = res.headers.get('content-type');
     console.log(`Content-Type: ${contentType}`);
 
     if (!res.ok) {
-      // Try to get error text
       const errorText = await res.text();
-      console.error(`API Error Response: ${errorText.substring(0, 200)}...`); // First 200 chars
+      console.error(`API Error Response: ${errorText.substring(0, 200)}...`);
       
       return { 
         success: false, 
@@ -61,7 +74,6 @@ export async function sendContactMessage(data: { name: string; email: string; me
       };
     }
 
-    // Only try to parse JSON if we got JSON back
     if (contentType && contentType.includes('application/json')) {
       return await res.json();
     } else {
